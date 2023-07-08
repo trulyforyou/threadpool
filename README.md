@@ -1,2 +1,2 @@
 # threadpool
-Tthreadpool implemented by C++
+Threadpool implemented by C++
