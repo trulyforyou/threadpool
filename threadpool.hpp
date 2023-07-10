@@ -71,5 +71,7 @@ class thread_pool {
   lock_free_queue<function_wrapper> pool_work_queue_;
   static thread_local std::unique_ptr<local_queue_type> local_work_queue_;
 };
+
+thread_local std::unique_ptr<thread_pool::local_queue_type> thread_pool::local_work_queue_{nullptr};
 }  // namespace lyc
 #endif  // THREAD_POOL_HPP_
