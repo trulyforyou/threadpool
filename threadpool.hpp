@@ -14,7 +14,7 @@ namespace lyc {
 
 class thread_pool {
  public:
- // TODO(ye): Add a constructor to specify the number of threads
+  // TODO(ye): Add a constructor to specify the number of threads
   thread_pool() : done_(false) {
     unsigned const thread_count = std::thread::hardware_concurrency();
     try {
@@ -33,17 +33,17 @@ class thread_pool {
     }
     done_ = true;
   }
-  template <typename FunctionType, typename... Args>
-  auto spawn_task(FunctionType&& f, Args&&... a) {
-    using result_type = std::invoke_result_t<FunctionType&&, Args&&...>;
-    std::packaged_task<result_type(Args...)> task(
-        std::forward<FunctionType>(f));
+  template <typename Func, typename... Args>
+  auto spawn_task(Func&& f, Args&&... a)
+      -> std::future<std::invoke_result_t<Func&&, Args&&...>> {
+    using result_type = std::invoke_result_t<Func&&, Args&&...>;
+    std::packaged_task<result_type()> task(
+        std::bind(std::forward<Func>(f), std::forward<Args>(a)...));
     std::future<result_type> res(task.get_future());
     if (local_work_queue_) {
-      local_work_queue_->emplace(std::move(task), std::forward<Args>(a)...);
+      local_work_queue_->emplace(std::move(task));
     } else {
-      pool_work_queue_.push(
-          function_wrapper(std::move(task), std::forward<Args>(a)...));
+      pool_work_queue_.push(function_wrapper(std::move(task)));
     }
     return res;
   }
@@ -72,6 +72,7 @@ class thread_pool {
   static thread_local std::unique_ptr<local_queue_type> local_work_queue_;
 };
 
-thread_local std::unique_ptr<thread_pool::local_queue_type> thread_pool::local_work_queue_{nullptr};
+thread_local std::unique_ptr<thread_pool::local_queue_type>
+    thread_pool::local_work_queue_{nullptr};
 }  // namespace lyc
 #endif  // THREAD_POOL_HPP_
