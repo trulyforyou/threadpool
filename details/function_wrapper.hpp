@@ -2,8 +2,8 @@
 #define FUNCTION_WRAPPER_HPP_
 
 #include <functional>
-#include <type_traits>
 #include <memory>
+#include <type_traits>
 
 namespace lyc {
 
@@ -23,7 +23,7 @@ class function_wrapper {
 
    private:
     Fn f_;
-    std::tuple<Args&&...> args_;
+    std::tuple<Args...> args_;
   };
 
  private:
@@ -34,7 +34,7 @@ class function_wrapper {
             typename = std::enable_if_t<
                 !std::is_same_v<std::decay_t<F>, function_wrapper>>>
   explicit function_wrapper(F&& f, Args&&... a)
-      : impl_(new impl_type<decltype(f), decltype(a)...>(
+      : impl_(std::make_unique<impl_type<F, Args...>>(
             std::forward<F>(f), std::forward<Args>(a)...)) {}
   function_wrapper() = default;
   function_wrapper(function_wrapper&& other) noexcept
@@ -45,7 +45,11 @@ class function_wrapper {
   }
   function_wrapper(const function_wrapper&) = delete;
   function_wrapper& operator=(const function_wrapper&) = delete;
-  void operator()() { impl_->call(); }
+  void operator()() {
+    if (impl_ != nullptr) {
+      impl_->call();
+    }
+  }
 };
 
 }  // namespace lyc

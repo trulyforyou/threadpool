@@ -80,7 +80,7 @@ class lock_free_queue {
                     counted_node_ptr const& new_tail) {
     node* const current_tail_ptr = old_tail.ptr;
     while (!tail_.compare_exchange_weak(old_tail, new_tail) &&
-           old_tail.ptr == current_tail_ptr) 
+           old_tail.ptr == current_tail_ptr)
       ;
     if (old_tail.ptr == current_tail_ptr) {
       free_external_counter(old_tail);
