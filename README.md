@@ -1,6 +1,6 @@
-# Thread Pool and Lock-Free Queue in C++
+# Thread Pool in C++
 
-This project provides a thread pool implementation and a lock-free queue in C++. It's designed for high-performance, concurrent programming in C++.
+This project provides a thread pool implementation in C++. It's designed for high-performance, concurrent programming in C++.
 
 ## Features
 
