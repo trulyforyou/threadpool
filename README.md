@@ -18,13 +18,13 @@ To use this project, include the relevant header files in your C++ code:
 Then, you can create a thread_pool object and use it to execute tasks:
 ```cpp
 lyc::thread_pool pool;
-auto result = pool.submit([]() { /* your task here */ });
+auto result = pool.spawn_task([]() { /* your task here */ });
 ```
 ## Testing
 To run the tests, compile and run the sample.cc file:
 
 ```shell
-g++ -std=c++17 -pthread sample.cc -o sample
+g++ -std=c++17 sample.cc -o sample
 ./sample
 ```
 ## License

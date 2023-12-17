@@ -2,6 +2,7 @@
 #define THREAD_POOL_HPP_
 
 #include <future>
+#include <iostream>
 #include <memory>
 #include <queue>
 #include <thread>
@@ -12,27 +13,41 @@
 
 namespace lyc {
 
+class thread_guard {
+ public:
+  explicit thread_guard(std::thread& t) : t_(t) {}
+  ~thread_guard() {
+    if (t_.joinable()) {
+      t_.join();
+    }
+  }
+  thread_guard(thread_guard&&) = delete;
+  thread_guard& operator=(thread_guard&&) = delete;
+  thread_guard(const thread_guard&) = delete;
+  thread_guard& operator=(const thread_guard&) = delete;
+
+ private:
+  std::thread& t_;
+};
+
 class thread_pool {
  public:
-  // TODO(ye): Add a constructor to specify the number of threads
-  thread_pool() : done_(false) {
-    unsigned const thread_count = std::thread::hardware_concurrency();
+  explicit thread_pool(
+      unsigned thread_count = std::thread::hardware_concurrency())
+      : done_(false) {
+    threads_.reserve(thread_count);
+    guards_.reserve(thread_count);
     try {
       for (unsigned i = 0; i < thread_count; ++i) {
         threads_.emplace_back([this]() { worker_thread(); });
+        guards_.emplace_back(std::make_unique<thread_guard>(threads_.back()));
       }
     } catch (...) {
-      // TODO(ye): need to change thread join with RAII style
-      done_ = true;
+      done_.test_and_set();
       throw;
     }
   }
-  ~thread_pool() {
-    for (auto& t : threads_) {
-      t.join();
-    }
-    done_ = true;
-  }
+  ~thread_pool() { done_.test_and_set(); }
   template <typename Func, typename... Args>
   auto spawn_task(Func&& f, Args&&... a)
       -> std::future<std::invoke_result_t<Func&&, Args&&...>> {
@@ -51,15 +66,21 @@ class thread_pool {
  private:
   void worker_thread() {
     local_work_queue_ = std::make_unique<local_queue_type>();
-    while (!done_) {
-      if (local_work_queue_ && !local_work_queue_->empty()) {
-        auto task = std::move(local_work_queue_->front());
-        local_work_queue_->pop();
-        task();
-      } else if (auto task = pool_work_queue_.pop(); task != nullptr) {
-        (*task)();
-      } else {
-        std::this_thread::yield();
+    while (!done_.test()) {
+      try {
+        if (local_work_queue_ && !local_work_queue_->empty()) {
+          auto task = std::move(local_work_queue_->front());
+          local_work_queue_->pop();
+          task();
+        } else if (auto task = pool_work_queue_.pop(); task != nullptr) {
+          (*task)();
+        } else {
+          std::this_thread::yield();
+        }
+      } catch (const std::exception& e) {
+        std::cerr << "Exception in worker thread: " << e.what() << '\n';
+      } catch (...) {
+        std::cerr << "Unknown exception in worker thread\n";
       }
     }
   }
@@ -67,7 +88,8 @@ class thread_pool {
  private:
   using local_queue_type = std::queue<function_wrapper>;
   std::vector<std::thread> threads_;
-  std::atomic<bool> done_;
+  std::vector<std::unique_ptr<thread_guard>> guards_;
+  std::atomic_flag done_;
   lock_free_queue<function_wrapper> pool_work_queue_;
   static thread_local std::unique_ptr<local_queue_type> local_work_queue_;
 };
